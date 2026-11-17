@@ -1,21 +1,419 @@
 modules:
   jira:issuePanel:
-    - key: dejarun-hello-world-issue-panel
+    - key: dejarun-issue-panel
       resource: main
       resolver:
         function: resolver
       render: native
       title: DejaRun
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+  jira:projectPage:
+    - key: dejarun-project-page
+      resource: registry
+      resolver:
+        function: resolver
+      render: native
+      title: DejaRun
+  jira:projectSettingsPage:
+    - key: dejarun-project-settings
+      resource: settings
+      resolver:
+        function: resolver
+      render: native
+      title: DejaRun settings
+  jira:adminPage:
+    - key: dejarun-demo-data
+      resource: admin
+      resolver:
+        function: resolver
+      render: native
+      title: DejaRun demo data
+  rovo:agent:
+    - key: prior-run-agent
+      name: Prior Run Agent
+      description: Checks whether an experiment has been run before, compares conditions field by field with past experiments in Jira and Confluence, and explains what earlier runs found, including the failed ones.
+      prompt: |
+        You are the Prior Run Agent of the DejaRun app. You help researchers and lab managers in R&D labs avoid
+        repeating experiments that have already been run, and reuse what earlier runs found.
+
+        What DejaRun does
+        - Each Jira project has a parameter schema: the conditions that describe an experiment there (for example
+          cure temperature in degrees Celsius with a tolerance, or substrate as a fixed list of values).
+        - Every experiment is a record with a system, a test method, condition values, an outcome (success, failed,
+          inconclusive, planned), findings and a report link. Records come from Jira work items and from Confluence
+          report pages.
+        - DejaRun compares experiments with deterministic code. Categorical conditions must be equal. Numeric
+          conditions are converted to a common unit and must be within the tolerance of the schema. The weighted
+          share of matching conditions gives a verdict: Duplicate, Similar or New.
+
+        Rules you must follow
+        1. Verdicts and comparisons come only from the actions. Never invent, change, soften or override a verdict.
+           If a verdict looks wrong to you, say so as your opinion and name the condition a person should check.
+        2. Never state an experimental result, number or finding that is not in an action result. If no experiment
+           on record matches, say exactly that. Do not fill gaps with general chemistry or process knowledge
+           presented as if it were this lab's result; if you add general knowledge, label it clearly as general.
+        3. Always cite your evidence: for every experiment you mention give its reference (work item key or record
+           id) and its url, and the report link when the action returned one.
+        4. Always get facts from an action before answering. Do not answer from memory or from earlier turns when
+           the user asks about the current state.
+        5. If the user did not say which project, use the project the conversation was opened in. If there is none,
+           ask for the Jira project key.
+        6. Before any action that writes (register-experiment, link-as-repeat): first show the user exactly what
+           will be recorded (for register-experiment the work item or page and every condition value; for
+           link-as-repeat both experiments), then ask for confirmation, and only run the action after the user
+           clearly agrees. Never run a write action in the same turn in which you first propose it.
+        7. The decision to run a duplicate anyway belongs to the researcher. You cannot record it. Tell the user to
+           use "Proceed with reason" in the DejaRun panel of the work item.
+        8. If an action returns an "error" field, tell the user what it says in plain words and what they can do
+           next. Do not retry in a loop.
+
+        Turning questions into action inputs
+        - Exact planned conditions ("I want to cure BE-200 at 122 C for 60 min on aluminum") -> find-prior-runs with
+          system, method and conditions written as "Name: value unit" pairs separated by semicolons. Use the
+          parameter names of the project's schema; the action tells you which names it could not use.
+        - A range or open question ("has anyone tested this resin above 120 C on aluminum?") -> summarize-learnings
+          with filters such as "Cure temperature > 120 °C; Substrate = Aluminum; Resin type = Epoxidized soybean oil".
+          Supported operators are =, !=, >, >=, <, <=.
+        - "What did BAF-1 find?" -> get-experiment-record.
+        - "How do BAF-1 and BAF-4 differ?" -> compare-experiments.
+        - A Confluence report page that is not registered -> propose-record-from-page, show the proposal, and after
+          confirmation register-experiment with that page.
+        - "Who ran BAF-1?" or "Whom should I ask about it?" -> get-run-owners. Name only the people it returns.
+        - "Who else is working on BE-200?" -> find-people-on-system.
+
+        How to answer
+        - Lead with the answer: the verdict, or how many experiments match and how they ended.
+        - For a Duplicate, say what the earlier run found before anything else. A failed prior run is the most
+          valuable thing you can surface.
+        - List failed runs with their cause, then successful runs with the conditions that worked, then
+          inconclusive ones. Name the conditions that differ from what the user asked about.
+        - Keep it short and use the plain language of a lab. Use a small table when comparing conditions.
+        - Reply in the language of the user's latest message.
+      conversationStarters:
+        - Has this experiment been run before?
+        - What did past runs on this system find?
+        - Which conditions failed, and why?
+        - Compare two experiments
+      actions:
+        - find-prior-runs
+        - get-experiment-record
+        - compare-experiments
+        - summarize-learnings
+        - propose-record-from-page
+        - register-experiment
+        - link-as-repeat
+        - get-run-owners
+        - find-people-on-system
+      skills:
+        - prior-run-check
+  rovo:skill:
+    - key: prior-run-check
+      source:
+        dir: skills/prior-run-check
+      dependencies:
+        tools:
+          - find-prior-runs
+          - get-experiment-record
+          - compare-experiments
+          - summarize-learnings
+          - propose-record-from-page
+          - register-experiment
+          - link-as-repeat
+          - get-run-owners
+          - find-people-on-system
+  rovo:mcp:
+    - key: dejarun-mcp
+      name: DejaRun
+      tools:
+        - find-prior-runs
+        - get-experiment-record
+        - compare-experiments
+        - summarize-learnings
+        - propose-record-from-page
+        - register-experiment
+        - link-as-repeat
+        - get-run-owners
+        - find-people-on-system
+  action:
+    - key: find-prior-runs
+      name: Find prior runs
+      function: findPriorRuns
+      actionVerb: GET
+      description: Checks planned experiment conditions against every past experiment in a Jira project. Returns the verdict (Duplicate, Similar or New) with a field-by-field comparison, outcomes, findings and report links. Stores nothing.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, for example BAF. Leave empty to use the project the conversation was opened in.
+        system:
+          title: System
+          type: string
+          required: false
+          description: The material system or product under test, for example "Bio-epoxy BE-200".
+        method:
+          title: Test method
+          type: string
+          required: false
+          description: The test method, for example "Lap shear test".
+        conditions:
+          title: Conditions
+          type: string
+          required: false
+          description: 'Conditions as "Name: value unit" pairs separated by semicolons, using the parameter names of the project schema, for example "Cure temperature: 122 °C; Substrate: Aluminum".'
+    - key: get-experiment-record
+      name: Get experiment record
+      function: getExperimentRecord
+      actionVerb: GET
+      description: Returns the experiment record of one work item or imported report (conditions, outcome, findings, report link), its current prior-run check and the decision taken on it. Use when asked about one specific experiment.
+      inputs:
+        experiment:
+          title: Experiment
+          type: string
+          required: true
+          description: Work item key such as BAF-3, or a record id such as page-458781 for an experiment imported from a Confluence report.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key. Only needed when the experiment is given as a record id.
+    - key: compare-experiments
+      name: Compare experiments
+      function: compareExperiments
+      actionVerb: GET
+      description: Compares two experiments of the same project condition by condition and returns what differs, what is the same within tolerance and what cannot be compared, with the similarity verdict.
+      inputs:
+        first:
+          title: First experiment
+          type: string
+          required: true
+          description: Work item key such as BAF-13, or a record id.
+        second:
+          title: Second experiment
+          type: string
+          required: true
+          description: Work item key such as BAF-1, or a record id.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key. Only needed when both experiments are given as record ids.
+    - key: summarize-learnings
+      name: Summarize learnings
+      function: summarizeLearnings
+      actionVerb: GET
+      description: Returns the past experiments that match a system, a method or condition filters (for example cure temperature above 120 °C on aluminum), grouped by outcome with findings and links. Use for open or range questions about what was tried.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, for example BAF. Leave empty to use the project the conversation was opened in.
+        system:
+          title: System
+          type: string
+          required: false
+          description: Only experiments on this material system or product.
+        method:
+          title: Test method
+          type: string
+          required: false
+          description: Only experiments with this test method.
+        filters:
+          title: Condition filters
+          type: string
+          required: false
+          description: 'Conditions separated by semicolons, each as "Name operator value" with operators =, !=, >, >=, <, <=. Example "Cure temperature > 120 °C; Substrate = Aluminum". Outcome can be filtered too.'
+    - key: propose-record-from-page
+      name: Propose record from page
+      function: proposeRecordFromPage
+      actionVerb: GET
+      description: Reads the conditions table of a Confluence report page and returns the experiment record it would create, compared with experiments already on record. Stores nothing. Use before register-experiment.
+      inputs:
+        page:
+          title: Confluence page
+          type: string
+          required: true
+          description: The Confluence page id or the full page URL.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key whose schema the page should be read with. Leave empty to use the project the conversation was opened in.
+    - key: register-experiment
+      name: Register experiment
+      function: registerExperiment
+      actionVerb: CREATE
+      description: Creates or updates an experiment record, from a Confluence report page or for a Jira work item with given conditions, then runs the prior-run check. Use only after showing the user what will be recorded and getting explicit confirmation.
+      inputs:
+        page:
+          title: Confluence page
+          type: string
+          required: false
+          description: Confluence page id or URL of a report page to register. When given, the other inputs except projectKey are ignored.
+        issueKey:
+          title: Work item key
+          type: string
+          required: false
+          description: The Jira work item the experiment belongs to, for example BAF-13.
+        system:
+          title: System
+          type: string
+          required: false
+          description: The material system or product under test.
+        method:
+          title: Test method
+          type: string
+          required: false
+          description: The test method.
+        conditions:
+          title: Conditions
+          type: string
+          required: false
+          description: 'Conditions as "Name: value unit" pairs separated by semicolons, using the parameter names of the project schema, for example "Cure temperature: 122 °C; Substrate: Aluminum".'
+        objective:
+          title: Objective
+          type: string
+          required: false
+          description: One sentence on what the experiment is meant to show.
+        outcome:
+          title: Outcome
+          type: string
+          required: false
+          description: One of planned, success, failed, inconclusive. Defaults to planned.
+        findings:
+          title: Findings
+          type: string
+          required: false
+          description: One or two sentences on what the experiment found. For a failed experiment, why it failed.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key. Only needed when registering a page outside a project conversation.
+    - key: link-as-repeat
+      name: Link as repeat
+      function: linkAsRepeat
+      actionVerb: CREATE
+      description: Records that an experiment repeats a prior run and will not be run again, links the two work items and leaves a comment. Use only after naming both experiments to the user and getting explicit confirmation.
+      inputs:
+        experiment:
+          title: Experiment
+          type: string
+          required: true
+          description: Work item key of the experiment that will not be run again, for example BAF-13.
+        priorRun:
+          title: Prior run
+          type: string
+          required: true
+          description: Work item key or record id of the prior run it repeats, for example BAF-1.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key. Normally taken from the work item key.
+    - key: get-run-owners
+      name: Get run owners
+      function: getRunOwners
+      actionVerb: GET
+      description: Returns who can tell the user about a past experiment (the Jira owner, and from the Teamwork Graph who wrote and contributed to its report page) and what each of them is working on now. Use when asked who ran an experiment or whom to ask about it.
+      inputs:
+        experiment:
+          title: Experiment
+          type: string
+          required: true
+          description: Work item key such as BAF-1, or a record id such as page-458781.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key. Only needed when the experiment is given as a record id.
+    - key: find-people-on-system
+      name: Find people on system
+      function: findPeopleOnSystem
+      actionVerb: GET
+      description: Lists the people who are planning or running experiments on a given material system in a project right now, with those experiments. Use when asked who else is working on a system, before starting similar work.
+      inputs:
+        system:
+          title: System
+          type: string
+          required: true
+          description: The material system or product, for example "Bio-epoxy BE-200".
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, for example BAF. Leave empty to use the project the conversation was opened in.
+  trigger:
+    - key: dejarun-issue-events
+      function: issue-events
+      events:
+        - avi:jira:created:issue
+        - avi:jira:updated:issue
+        - avi:jira:deleted:issue
+      filter:
+        ignoreSelf: true
   function:
     - key: resolver
       handler: index.handler
+    - key: issue-events
+      handler: index.onIssueEvent
+    - key: findPriorRuns
+      handler: index.findPriorRuns
+    - key: getExperimentRecord
+      handler: index.getExperimentRecord
+    - key: compareExperiments
+      handler: index.compareExperiments
+    - key: summarizeLearnings
+      handler: index.summarizeLearnings
+    - key: proposeRecordFromPage
+      handler: index.proposeRecordFromPage
+    - key: registerExperiment
+      handler: index.registerExperiment
+    - key: linkAsRepeat
+      handler: index.linkAsRepeat
+    - key: getRunOwners
+      handler: index.getRunOwners
+    - key: findPeopleOnSystem
+      handler: index.findPeopleOnSystem
 resources:
   - key: main
     path: src/frontend/index.jsx
+  - key: settings
+    path: src/frontend/settings.jsx
+  - key: admin
+    path: src/frontend/admin.jsx
+  - key: registry
+    path: src/frontend/registry.jsx
+permissions:
+  scopes:
+    # Read work items and check the current user's project permissions
+    - read:jira-work
+    # Show who owns a prior run and who took a decision
+    - read:jira-user
+    # Comment on a Duplicate, link a repeat to the prior run
+    - write:jira-work
+    # Read experiment report pages for the Confluence import
+    - read:page:confluence
+    - read:space:confluence
+    # Teamwork Graph: who wrote a report page and what the people behind a prior run work on now
+    - read:graph:user:atlassian
+    - read:graph:issue:jira
+    - read:graph:page:confluence
+    # Demo data loader only (Jira admin page)
+    - manage:jira-configuration
+    - write:confluence-space
+    - write:page:confluence
+    # Forge hosted storage
+    - storage:app
 app:
   runtime:
     name: nodejs24.x
     memoryMB: 256
     architecture: arm64
   id: ari:cloud:ecosystem::app/71ea0909-4792-48a6-bc49-d676932f20c3
+  compatibility:
+    jira:
+      required: true
+    confluence:
+      required: false

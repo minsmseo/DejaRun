@@ -352,8 +352,32 @@ Scopes are added in the step that first needs them, not before.
 
 `write:jira-work` and `read:jira-user` come from the Jira platform scope list as used by the GateReady app in this account; re-check them against the specific REST operations in step 7.
 
+## Findings from building steps 4 to 13 (2026-11-17)
+
+All observed on the development site with app versions 6.0.0 to 9.0.0.
+
+| Area | Observed |
+|---|---|
+| Storage | Plain KVS with key prefixes (`@forge/kvs`, `kvs.query().where('key', WhereConditions.beginsWith(prefix))`) is used instead of Custom Entities. A project has tens to hundreds of records, all of which are compared in memory, so no index is needed, and KVS has no indexing wait and no undeletable entities. |
+| Issue panel | A `jira:issuePanel` is added per work item from the app button under the title. Changing the module `key` removes the panel from work items that had it. |
+| UI Kit text inputs | A `Textfield` or `TextArea` reports its value a moment after the last keystroke. Clicking a button straight after typing submitted the previous value. The panel now waits 300 ms and reads the latest value from a ref before submitting. |
+| Manifest | Action and input `description` values are limited to 255 characters, and a plain YAML scalar must not contain `: `; quote such values. |
+| Cross-product | Adding Confluence scopes makes the CLI ask for `forge install -p confluence`. With `app.compatibility` (Jira required, Confluence optional) both installs succeeded and Confluence REST v2 calls from Jira modules work as the user. |
+| Trigger | `avi:jira:created:issue` reached the app within 4 seconds in one test: a work item created with a conditions table in its description (cure temperature 433 K, cure time 0.5 h) was registered, judged a Duplicate of a 160 °C / 30 min run, and commented on by the app user. `filter.ignoreSelf: true` kept the app's own comment from re-triggering it. |
+| Comments | Comments posted with `asApp()` appear as the app ("DejaRun"); with `asUser()` they appear as the person. The Duplicate notice is posted as the app, decisions as the person who took them. |
+| Issue links | `POST /rest/api/3/issueLink` with `inwardIssue` = new work item and `outwardIssue` = prior run, type Duplicate, shows "duplicates <prior>" on the new work item. |
+| Rovo | The Prior Run Agent appears in Rovo Chat on this site and calls the actions. Action handlers receive inputs as top-level payload fields plus `payload.context` (`accountId`, `cloudId`, `jira.projectKey`, `jira.issueKey`). |
+| Teamwork Graph, frontend | `requestTeamworkGraph` from `@forge/bridge` returns report creator, contributors and a person's assigned work items in the issue panel. |
+| Teamwork Graph, backend | `api.asUser().requestTeamworkGraph` works from an action handler for the same page and work item queries. The earlier backend failure ("User is not permitted to query this organization") was specific to the team query. |
+| Demo site users | The site's assignable users include service accounts. The demo loader only assigns work to accounts whose display name reads like a person's name. |
+
+Not verified:
+
+- `rovo:mcp` from an external MCP client. The module deploys; external access must first be enabled by a site admin under Atlassian Administration > Apps > Sites > Connected apps.
+- `confluencePageLinkedConfluencePages` with a non-empty result. The demo report pages do not link to each other.
+- The `avi:jira:updated:issue` and `avi:jira:deleted:issue` paths of the trigger. Only the created path was checked end to end.
 ## Open items
 
 1. Step 13 follows the people-based design in section 7, which the owner approved and CLAUDE.md section 6 describes. Team lookups fail on this site and are not used.
-2. Before building step 13: test `confluencePageLinkedConfluencePages` on a page that links to other pages, and decide whether the app also needs `forge install -p confluence` for the graph page queries (they answered without it).
+2. Test `confluencePageLinkedConfluencePages` on a page that links to other pages. The app is now installed in Confluence as well.
 3. The step 3 probe was removed on 2026-11-17 (app version 5.0.0): the panel shows one line of text, the resolver defines no functions, and the manifest has no scopes. The probe code was never committed. The queries and selections that worked are listed in the section 7 tables; re-create them from there when step 13 starts.
