@@ -360,6 +360,8 @@ All observed on the development site with app versions 6.0.0 to 9.0.0.
 |---|---|
 | Storage | Plain KVS with key prefixes (`@forge/kvs`, `kvs.query().where('key', WhereConditions.beginsWith(prefix))`) is used instead of Custom Entities. A project has tens to hundreds of records, all of which are compared in memory, so no index is needed, and KVS has no indexing wait and no undeletable entities. |
 | Issue panel | A `jira:issuePanel` is added per work item from the app button under the title. Changing the module `key` removes the panel from work items that had it. |
+| Issue panel for all work items | The panel's menu has **Show for all work items**. It applies to the project the work item is in: after choosing it in BAF, a BAF work item that never had the panel showed it, a CCP work item did not. |
+| Issue context | `jira:issueContext` appears on every work item without being added. With `dynamicProperties` the lozenge is visible while the entry is collapsed. Function keys are limited to 23 characters. |
 | UI Kit text inputs | A `Textfield` or `TextArea` reports its value a moment after the last keystroke. Clicking a button straight after typing submitted the previous value. The panel now waits 300 ms and reads the latest value from a ref before submitting. |
 | Manifest | Action and input `description` values are limited to 255 characters, and a plain YAML scalar must not contain `: `; quote such values. |
 | Cross-product | Adding Confluence scopes makes the CLI ask for `forge install -p confluence`. With `app.compatibility` (Jira required, Confluence optional) both installs succeeded and Confluence REST v2 calls from Jira modules work as the user. |

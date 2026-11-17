@@ -183,19 +183,27 @@ const RegistrationForm = ({ schema, record, busy, error, onSave, onCancel }) => 
             <Select inputId="outcome" options={OUTCOME_OPTIONS} value={OUTCOME_OPTIONS.find((option) => option.value === form.outcome)} onChange={(option) => set('outcome')(option.value)} />
           </Box>
         </LabeledField>
-        <LabeledField id="performed-on" label="Run date">
-          <DatePicker id="performed-on" value={form.performedOn || undefined} onChange={(value) => set('performedOn')(value || '')} />
-        </LabeledField>
-        <LabeledField id="report-url" label="Report link">
-          <Box xcss={fieldStyle}>
-            <Textfield id="report-url" value={form.reportUrl} placeholder="https://..." onChange={setEvent('reportUrl')} />
-          </Box>
-        </LabeledField>
+        {/* Result fields only matter once the experiment has been run, so a planned experiment keeps a short form. */}
+        {form.outcome !== 'planned' && (
+          <LabeledField id="performed-on" label="Run date">
+            <DatePicker id="performed-on" value={form.performedOn || undefined} onChange={(value) => set('performedOn')(value || '')} />
+          </LabeledField>
+        )}
+        {form.outcome !== 'planned' && (
+          <LabeledField id="report-url" label="Report link">
+            <Box xcss={fieldStyle}>
+              <Textfield id="report-url" value={form.reportUrl} placeholder="https://..." onChange={setEvent('reportUrl')} />
+            </Box>
+          </LabeledField>
+        )}
       </Inline>
+      {form.outcome === 'planned' && <HelperMessage>Come back after the run to record the outcome, the findings and the report link. That is what the next researcher will find.</HelperMessage>}
 
-      <LabeledField id="findings" label="Findings" help="One or two sentences. For a failed experiment, say why it failed. This is what the next researcher will read.">
-        <TextArea id="findings" value={form.findings} onChange={setEvent('findings')} />
-      </LabeledField>
+      {form.outcome !== 'planned' && (
+        <LabeledField id="findings" label="Findings" help="One or two sentences. For a failed experiment, say why it failed. This is what the next researcher will read.">
+          <TextArea id="findings" value={form.findings} onChange={setEvent('findings')} />
+        </LabeledField>
+      )}
 
       <ButtonGroup>
         <Button appearance="primary" isLoading={busy || settling} onClick={save}>
@@ -341,6 +349,7 @@ const MatchCard = ({ match, expanded, onToggle, canDecide, onLink, onProceed, cl
         {match.performedOn ? ` · Run on ${formatDate(match.performedOn)}` : ''}
         {match.owner ? ` · Owner: ${match.owner}` : ''}
       </Text>
+      <Text size="small">{differences(match)}</Text>
       {match.lowCoverage && <Text size="small">Every compared condition matches, but too few conditions could be compared to call this a duplicate.</Text>}
       {match.findings ? <Text>{`Findings: ${match.findings}`}</Text> : <Text size="small">No findings were recorded for this run.</Text>}
       {match.report && (
@@ -459,18 +468,46 @@ const DecisionBanner = ({ decision, canEdit, busy, onUndo }) => (
   </SectionMessage>
 );
 
-const VerdictBanner = ({ check }) => {
+const OUTCOME_SENTENCE = { success: 'succeeded', failed: 'failed', inconclusive: 'was inconclusive', planned: 'is planned and has no result yet' };
+
+/** "BAF-1 failed on Mar 22, 2026." The first thing a researcher needs to know about the closest prior run. */
+const headline = (match) =>
+  `${match.issueKey || match.title} ${OUTCOME_SENTENCE[match.outcome] || 'has no recorded result'}${
+    match.performedOn && match.outcome !== 'planned' ? ` on ${formatDate(match.performedOn)}` : ''
+  }.`;
+
+/** Names of the conditions that differ, or a sentence saying none do. */
+const differences = (match) => {
+  const names = match.rows.filter((row) => row.status === 'mismatch').map((row) => row.name);
+  return names.length ? `Differs in: ${names.join(', ')}.` : 'Every compared condition is within tolerance.';
+};
+
+/** The answer comes first: the verdict, then what the closest prior run found. */
+const VerdictBanner = ({ check, decided }) => {
+  const top = check.matches[0];
   if (check.verdict === 'Duplicate') {
     return (
       <SectionMessage appearance="warning" title="This experiment has already been run">
-        <Text>{`${check.matches.length === 1 ? 'A prior run has' : `${check.matches.length} prior runs have`} the same or nearly the same conditions. Look at the result below before you spend material and equipment time.`}</Text>
+        <Stack space="space.100">
+          <Text weight="bold">{headline(top)}</Text>
+          {top.findings && <Text>{top.findings}</Text>}
+          <Text size="small">
+            {`${differences(top)} ${
+              check.matches.length > 1 ? `${check.matches.length - 1} more prior run${check.matches.length > 2 ? 's are' : ' is'} listed below.` : ''
+            }${decided ? '' : ' Decide below whether to link this as a repeat or to proceed with a reason.'}`}
+          </Text>
+        </Stack>
       </SectionMessage>
     );
   }
   if (check.verdict === 'Similar') {
     return (
       <SectionMessage appearance="information" title="Similar experiments exist">
-        <Text>No prior run has the same conditions, but some are close. Their results may still tell you what to expect.</Text>
+        <Stack space="space.100">
+          <Text weight="bold">{`Closest: ${headline(top)}`}</Text>
+          {top.findings && <Text>{top.findings}</Text>}
+          <Text size="small">{`${differences(top)} No prior run has the same conditions, but the results below may tell you what to expect.`}</Text>
+        </Stack>
       </SectionMessage>
     );
   }
@@ -480,6 +517,34 @@ const VerdictBanner = ({ check }) => {
     </SectionMessage>
   );
 };
+
+const OUTCOME_VERB = { success: 'succeeded', failed: 'failed' };
+const runLabel = (run) => `${run.issueKey || run.title} ${OUTCOME_VERB[run.outcome] || run.outcome}${run.performedOn ? ` on ${formatDate(run.performedOn)}` : ''}`;
+const pairs = (items) => items.map((item) => `${item.condition} (${item.first || 'not recorded'} vs ${item.second || 'not recorded'})`).join(', ');
+
+/**
+ * Shown when runs with these conditions ended differently. The panel lists
+ * recorded facts only; possible explanations are left to people and to the
+ * Prior Run Agent, which must label them as hypotheses.
+ */
+const ConflictBanner = ({ conflicts }) => (
+  <SectionMessage appearance="discovery" title="Runs with these conditions ended differently">
+    <Stack space="space.150">
+      {conflicts.map((conflict) => (
+        <Stack key={`${conflict.first.recordId}-${conflict.second.recordId}`} space="space.050">
+          <Text weight="bold">{`${runLabel(conflict.first)}, but ${runLabel(conflict.second)}.`}</Text>
+          {conflict.evidence.closeButNotIdentical.length > 0 && <Text size="small">{`Within tolerance but not identical: ${pairs(conflict.evidence.closeButNotIdentical)}.`}</Text>}
+          {conflict.evidence.recordedOnOneSideOnly.length > 0 && <Text size="small">{`Recorded for only one run: ${pairs(conflict.evidence.recordedOnOneSideOnly)}.`}</Text>}
+          {conflict.evidence.different.length > 0 && <Text size="small">{`Outside tolerance: ${pairs(conflict.evidence.different)}.`}</Text>}
+          {conflict.evidence.closeButNotIdentical.length + conflict.evidence.recordedOnOneSideOnly.length + conflict.evidence.different.length === 0 && (
+            <Text size="small">Every recorded condition is identical, so the cause is something the schema does not capture. Compare the findings of the two runs.</Text>
+          )}
+        </Stack>
+      ))}
+      <Text size="small">These are recorded facts, not an explanation. Ask the Prior Run Agent in Rovo Chat to explain the conflicting results; it gives hypotheses tied to these differences and says what to measure to settle them.</Text>
+    </Stack>
+  </SectionMessage>
+);
 
 const App = () => {
   const productContext = useProductContext();
@@ -533,7 +598,7 @@ const App = () => {
   }
   if (!state) return <Loading label="Checking for prior runs" />;
 
-  const { schema, record, check, decision, canEdit, canAdminister } = state;
+  const { schema, record, check, decision, conflicts, canEdit, canAdminister } = state;
 
   if (!schema) {
     return (
@@ -567,26 +632,34 @@ const App = () => {
     );
   }
 
-  const canDecide = canEdit && !decision;
+  // A decision is about whether to run an experiment, so only a planned one has a decision to take.
+  const isPlanned = record.outcome === 'planned';
+  const canDecide = canEdit && !decision && isPlanned;
 
+  const conditionsCard = (
+    <Box xcss={cardStyle}>
+      <Stack space="space.150">
+        <Heading as="h4">This experiment</Heading>
+        <RecordSummary record={record} schema={schema} />
+        {canEdit && (
+          <Inline>
+            <Button spacing="compact" onClick={() => setEditing(true)}>
+              Edit conditions
+            </Button>
+          </Inline>
+        )}
+      </Stack>
+    </Box>
+  );
+
+  // The answer comes first: verdict, decision, prior runs. The conditions the
+  // researcher just typed come last, because they already know them.
   return (
     <Page>
-      <Box xcss={cardStyle}>
-        <Stack space="space.150">
-          <RecordSummary record={record} schema={schema} />
-          {canEdit && (
-            <Inline>
-              <Button spacing="compact" onClick={() => setEditing(true)}>
-                Edit conditions
-              </Button>
-            </Inline>
-          )}
-        </Stack>
-      </Box>
-
       {!dialog && <ErrorBanner message={error} />}
+      {check && <VerdictBanner check={check} decided={Boolean(decision) || !isPlanned} />}
+      {conflicts?.length > 0 && <ConflictBanner conflicts={conflicts} />}
       {decision && <DecisionBanner decision={decision} canEdit={canEdit} busy={busy} onUndo={() => run('clearDecision')} />}
-      {check && <VerdictBanner check={check} />}
 
       {check?.matches?.length > 0 && (
         <Stack space="space.150">
@@ -605,6 +678,8 @@ const App = () => {
           ))}
         </Stack>
       )}
+
+      {conditionsCard}
 
       <ModalTransition>
         {dialog?.type === 'link' && (

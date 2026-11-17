@@ -1,7 +1,7 @@
 ---
 name: prior-run-check
 description: Check whether an R&D experiment has already been run before it is planned or started. Compares the planned conditions (system, test method and parameters such as cure temperature or filler loading) with past experiments recorded in Jira and Confluence, reports Duplicate, Similar or New with a field-by-field comparison, summarizes what earlier runs found (including failed ones), and records the decision to link the experiment as a repeat. Use when someone plans an experiment, asks whether something has been tried before, or wants the lessons from past runs on a material system or method.
-allowed-tools: find-prior-runs get-experiment-record compare-experiments summarize-learnings propose-record-from-page register-experiment link-as-repeat get-run-owners find-people-on-system
+allowed-tools: find-prior-runs get-experiment-record compare-experiments summarize-learnings propose-record-from-page register-experiment link-as-repeat get-run-owners find-people-on-system explain-conflicting-results
 compatibility: Requires the DejaRun Forge app installed in Jira (and in Confluence for report pages), and a parameter schema configured for the Jira project.
 ---
 
@@ -25,8 +25,9 @@ Use this procedure before an experiment is planned or started in a Jira project 
 4. **Widen the view when useful.** For questions about a range rather than exact conditions ("above 120 °C on aluminum"), call `summarize-learnings` with `filters` such as `Cure temperature > 120 °C; Substrate = Aluminum`. Present succeeded, failed and inconclusive runs separately.
 5. **Look closer.** Use `get-experiment-record` for one experiment's full record and decision, and `compare-experiments` for the exact differences between two experiments.
 6. **Point to people.** When a prior run matters, call `get-run-owners` to say who owned it, who wrote its report and what they are working on now. Call `find-people-on-system` to see who else is planning or running experiments on the same system. Name only people the tools return.
-7. **Bring in report-only experiments.** If the user points to a Confluence report page that is not registered, call `propose-record-from-page`, show the proposed record, and on a clear yes call `register-experiment` with that page.
-8. **Record the decision.** If the user decides not to repeat a Duplicate, name both experiments, ask for confirmation, then call `link-as-repeat`. If the user decides to run it anyway (for example a deliberate reproduction), tell them to record the reason with "Proceed with reason" in the DejaRun panel of the work item; that decision is taken by the researcher, not by the agent.
+7. **Explain conflicting results.** When runs with the same conditions ended differently, call `explain-conflicting-results`. State the conflict and the recorded differences first. Offer explanations only under a heading "Hypotheses, not findings", each tied to a recorded difference or a findings sentence, with what to measure to settle it.
+8. **Bring in report-only experiments.** If the user points to a Confluence report page that is not registered, call `propose-record-from-page`, show the proposed record, and on a clear yes call `register-experiment` with that page.
+9. **Record the decision.** If the user decides not to repeat a Duplicate, name both experiments, ask for confirmation, then call `link-as-repeat`. If the user decides to run it anyway (for example a deliberate reproduction), tell them to record the reason with "Proceed with reason" in the DejaRun panel of the work item; that decision is taken by the researcher, not by the agent.
 
 ## Handling problems
 

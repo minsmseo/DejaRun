@@ -98,8 +98,27 @@ const RegistryTab = ({ registry }) => {
         <Stat value={stats.repeatsAvoided} label="Repeats avoided" help="Linked to a prior run instead of being run again" />
         <Stat value={stats.repeatsWithReason} label="Repeats run with a reason" help="Deliberate repeats, with the reason on record" />
         <Stat value={stats.openDuplicates} label="Duplicates awaiting a decision" />
+        <Stat value={stats.conflicts} label="Conflicting results" help="Same conditions, one success and one failure" />
         <Stat value={stats.total} label="Experiments on record" help={`${stats.failed} failed, ${stats.reportOnly} known only from reports`} />
       </Inline>
+
+      {registry.conflicts.length > 0 && (
+        <SectionMessage appearance="discovery" title="Same conditions, different results">
+          <Stack space="space.050">
+            {registry.conflicts.map((conflict) => (
+              <Inline key={`${conflict.first.recordId}-${conflict.second.recordId}`} space="space.050" alignBlock="center" shouldWrap>
+                {conflict.first.url ? <Link href={conflict.first.url} openNewTab>{conflict.first.issueKey || conflict.first.title}</Link> : <Text>{conflict.first.title}</Text>}
+                <OutcomeLozenge outcome={conflict.first.outcome} />
+                <Text>and</Text>
+                {conflict.second.url ? <Link href={conflict.second.url} openNewTab>{conflict.second.issueKey || conflict.second.title}</Link> : <Text>{conflict.second.title}</Text>}
+                <OutcomeLozenge outcome={conflict.second.outcome} />
+                <Text size="small">{`${conflict.first.system}, ${conflict.first.method}`}</Text>
+              </Inline>
+            ))}
+            <Text size="small">These pairs are worth a second look: either a condition that matters is not in the schema, or one of the results does not reproduce.</Text>
+          </Stack>
+        </SectionMessage>
+      )}
 
       <Inline space="space.200" alignBlock="center" shouldWrap>
         <Box xcss={filterStyle}>

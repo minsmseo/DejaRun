@@ -2,6 +2,7 @@ import * as jira from '../clients/jira';
 import { getSchema } from '../data/schema.js';
 import * as records from '../data/records.js';
 import { issueRecordId, sanitizeDetails, SOURCES } from '../domain/record.js';
+import { conflictsAround, findConflicts } from '../engine/conflicts.js';
 import { findPriorRuns, VERDICT } from '../engine/similarity.js';
 import { UserError } from './errors.js';
 import { duplicateComment, decisionComment } from './comments.js';
@@ -133,13 +134,27 @@ export const registerExperiment = async ({ projectId, projectKey, issue, input, 
   return { record: presentRecord(saved, siteUrl), check };
 };
 
+const presentConflict = (conflict, siteUrl) => ({
+  first: presentRecord(conflict.first, siteUrl),
+  second: presentRecord(conflict.second, siteUrl),
+  score: conflict.score,
+  evidence: conflict.evidence,
+});
+
+/**
+ * Experiments with the same conditions and opposite results.
+ * With a record: the conflicts among that record and its duplicates. Without: every conflict in the project.
+ */
+export const getConflicts = ({ schema, record, allRecords, siteUrl, limit = 5 }) =>
+  (record ? conflictsAround(schema, record, allRecords) : findConflicts(schema, allRecords)).slice(0, limit).map((conflict) => presentConflict(conflict, siteUrl));
+
 /** Everything the issue panel shows for one work item. */
 export const getIssueState = async ({ projectId, issueId, siteUrl }) => {
   const recordId = issueRecordId(issueId);
   const [schema, record, decision] = await Promise.all([getSchema(projectId), records.getRecord(projectId, recordId), records.getDecision(projectId, recordId)]);
-  if (!schema || !record) return { schema, record: null, check: null, decision: null };
-  const check = await checkRecord({ projectId, recordId, siteUrl });
-  return { schema, record: presentRecord(record, siteUrl), check, decision };
+  if (!schema || !record) return { schema, record: null, check: null, decision: null, conflicts: [] };
+  const [check, allRecords] = await Promise.all([checkRecord({ projectId, recordId, siteUrl }), records.listRecords(projectId)]);
+  return { schema, record: presentRecord(record, siteUrl), check, decision, conflicts: getConflicts({ schema, record, allRecords, siteUrl, limit: 3 }) };
 };
 
 const DECISION = { LINKED: 'linked_repeat', PROCEED: 'proceed_with_reason' };

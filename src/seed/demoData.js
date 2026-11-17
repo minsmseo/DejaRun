@@ -68,6 +68,10 @@ const ADHESIVE_EXPERIMENTS = [
   experiment('Lap shear of BE-310 on aluminum', 'jira+report', BE310, LAP, adhesive(ELO, 28, 8, q(130, '°C'), q(50, 'min'), 'Aluminum'), 'success', 96,
     'First strength check of the linseed based BE-310.',
     'Reached 10.1 MPa mean with cohesive failure. BE-310 wets aluminum better than BE-200 at the same filler loading.'),
+  // Same conditions as the run above, opposite result: shown as conflicting results.
+  experiment('Repeat lap shear of BE-310 on aluminum for the pilot line', 'jira', BE310, LAP, adhesive(ELO, 28, 9, q(128, '°C'), q(50, 'min'), 'Aluminum'), 'failed', 10,
+    'Confirm the BE-310 result on aluminum before the pilot line trial.',
+    'Failed at 6.3 MPa with adhesive failure at the aluminum surface. The coupons were solvent degreased but not grit blasted, because the blasting cabinet was out of service that week.'),
   experiment('Peel strength of BE-310 on glass fiber composite', 'jira', BE310, PEEL, adhesive(ELO, 28, 8, q(130, '°C'), q(50, 'min'), 'Glass fiber composite'), 'inconclusive', 80,
     'Check BE-310 on composite panels.',
     'Results ranged from 1.9 to 3.6 N/mm depending on the panel batch. Surface release agent on some panels is suspected but was not measured.'),

@@ -2,7 +2,7 @@ import * as jira from '../clients/jira';
 import { getSchema } from '../data/schema.js';
 import * as records from '../data/records.js';
 import { findPriorRuns } from '../engine/similarity.js';
-import { DECISION_TYPES, presentRecord } from './experiments.js';
+import { DECISION_TYPES, getConflicts, presentRecord } from './experiments.js';
 
 /**
  * The experiment registry of a project: every record with its latest check
@@ -33,11 +33,14 @@ export const getRegistry = async ({ projectId, siteUrl }) => {
     .sort((a, b) => String(b.performedOn || b.updatedAt || '').localeCompare(String(a.performedOn || a.updatedAt || '')));
 
   const count = (test) => rows.filter(test).length;
+  const conflicts = schema ? getConflicts({ schema, allRecords, siteUrl, limit: 10 }) : [];
   return {
     hasSchema: Boolean(schema),
     spaceKey: schema?.spaceKey || '',
     rows,
+    conflicts,
     stats: {
+      conflicts: conflicts.length,
       total: rows.length,
       success: count((row) => row.outcome === 'success'),
       failed: count((row) => row.outcome === 'failed'),
@@ -46,7 +49,8 @@ export const getRegistry = async ({ projectId, siteUrl }) => {
       reportOnly: count((row) => !row.issueKey),
       repeatsAvoided: count((row) => row.decision?.type === DECISION_TYPES.LINKED),
       repeatsWithReason: count((row) => row.decision?.type === DECISION_TYPES.PROCEED),
-      openDuplicates: count((row) => row.verdict === 'Duplicate' && !row.decision),
+      // Only planned experiments still have a decision to take; a run that already happened does not.
+      openDuplicates: count((row) => row.verdict === 'Duplicate' && !row.decision && row.outcome === 'planned'),
     },
   };
 };

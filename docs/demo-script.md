@@ -2,14 +2,15 @@
 
 Target length: 4 minutes 30 seconds (limit: under 5 minutes). Language: English. All data shown is fictional (Halden Materials Lab).
 
-Run on the development site so far: scenes 2 and 3, the people area and both decisions of scene 4, the registry and the Confluence scan of scene 5 (the import itself was run in CCP), and both questions of scene 6. Not yet run through the UI: the filler change to 15 wt% in scene 4 and the CCP registration in scene 7; both follow from unit-tested engine behaviour but must be rehearsed before recording. Keys such as BAF-1 are the ones the demo data loader creates on an empty site; the new work item will get the next free key.
+Every scene below has been run on the development site (2026-11-17), including the filler change to 15 wt% (verdict drops to Similar, 89%) and the CCP registration (Duplicate of CCP-2). The Confluence import itself was run in CCP; in BAF only the scan was run, so the five BAF reports are still there to import on camera. Keys such as BAF-1 are the ones the demo data loader creates on an empty site; the new work item will get the next free key.
 
 ## Before recording
 
 1. Load the demo data (Jira settings > Apps > DejaRun demo data).
 2. In BAF, do **not** import the Confluence reports yet; scene 5 does that on camera.
-3. Close work items created during earlier rehearsals, or start from a fresh site.
-4. Browser at 100% zoom, sidebar collapsed, no other tabs.
+3. In each demo project, open one work item, add the DejaRun panel, then choose **Show for all work items** in the panel's menu. The setting applies to that project only. After that, every new work item in the project already has the panel.
+4. Close work items created during earlier rehearsals, or start from a fresh site.
+5. Browser at 100% zoom, sidebar collapsed, no other tabs.
 
 ## Scenes
 
@@ -39,6 +40,10 @@ Run on the development site so far: scenes 2 and 3, the people area and both dec
 
 Scene 7 gives a Duplicate of the WA-5 run that failed at high humidity (80 %RH, within ±10 %RH).
 
-## Optional extra shot
+## Optional extra shot: conflicting results
+
+The registry shows "Conflicting results" for BAF-7 (success) and the repeat that failed. Open the failed run's panel for the banner with the recorded differences, then ask the agent: "BAF-15 failed, but the same conditions worked before. Why did the same experiment give a different result?" It answers with the conflict, the recorded differences and a section "Hypotheses, not findings". Run on the development site. This can replace part of scene 6 (about 25 seconds).
+
+## Optional extra shot: automatic registration
 
 Create a work item whose description contains a two-column table (System, Test method, parameter names and values). Within seconds, with no one opening the panel, DejaRun registers the conditions and comments if it is a Duplicate. Verified on the development site with cure temperature given as 433 K and cure time as 0.5 h.

@@ -7,13 +7,14 @@ How DejaRun addresses each Codegeist 2026 judging criterion (20% each), with whe
 - **Not a keyword search wrapper.** Experiments are compared as structured conditions. `src/engine/compare.js` converts numeric values to a common unit and applies a per-field tolerance (absolute or percent); `src/engine/similarity.js` weights the fields, leaves out what cannot be compared, and derives the verdict.
 - **Explains why.** Every verdict comes with a comparison table: this experiment, prior run, match or not, and the reason ("Difference 2 °C is within ±5 °C").
 - **Nothing hard-coded for the demo.** The schema, tolerances, weights and thresholds are per-project settings. The two demo projects run on different schemas with the same code. `src/seed` only creates data.
-- **Deterministic and tested.** The engine, the filter language, the table parser and the Teamwork Graph client are pure functions with 43 unit tests (`npm test`).
+- **Deterministic and tested.** The engine, the filter language, the table parser and the Teamwork Graph client are pure functions with 48 unit tests (`npm test`).
 - **Guards against misleading results.** A full score with too little compared is Similar, not Duplicate. An experiment is never a duplicate of one that came later. A value on one side only is "not comparable", not "different".
-- **Platform use.** Nine Forge module types, Jira and Confluence in one app (`app.compatibility`), issue event trigger with `ignoreSelf`, Forge hosted storage, Teamwork Graph API, `rovo:agent`, `rovo:mcp`, `rovo:skill`. `docs/platform-notes.md` records what the official documentation says and what real calls returned.
+- **Platform use.** Ten Forge module types, Jira and Confluence in one app (`app.compatibility`), issue event trigger with `ignoreSelf`, Forge hosted storage, Teamwork Graph API, `rovo:agent`, `rovo:mcp`, `rovo:skill`. `docs/platform-notes.md` records what the official documentation says and what real calls returned.
 - **Security.** Every read goes through the current user's permissions. Agent inputs are treated as untrusted: the project is resolved as the user, and write actions check edit permission themselves.
 
 ## Design
 
+- **The verdict finds the researcher**: every work item shows it in its details area without adding a panel, and the panel leads with the verdict and what the earlier run found.
 - **One uninterrupted flow**: register conditions, see the verdict, compare, decide, and the decision is recorded and commented, all inside the work item.
 - **States covered**: project without a schema (different text for administrators and others), work item without a record, no edit permission, loading, backend errors with a retry, validation errors next to the form, Confluence not connected, nothing to import.
 - **Plain words on screen**: "This experiment has already been run", "Link as repeat", "Proceed with reason". No scores without an explanation.
@@ -32,6 +33,7 @@ How DejaRun addresses each Codegeist 2026 judging criterion (20% each), with whe
 - **Report-only experiments are included**, extracted from tables by code.
 - **Repeats are a decision, not a prohibition.** "Proceed with reason" keeps deliberate reproductions legitimate and visible.
 - **People, not just records.** The Teamwork Graph adds who wrote the report and what they work on now, including for experiments that never had a work item.
+- **Contradictions are surfaced.** Experiments with the same conditions and opposite results are found by code, with the recorded differences as evidence. The agent may explain them only as hypotheses tied to that evidence, each with what to measure to settle it.
 - **The agent cannot overrule the engine.** It explains verdicts and must cite a work item or report for every claim.
 
 ## Presentation

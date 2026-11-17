@@ -26,13 +26,15 @@ Keyword search does not solve this. Two experiments are the same when their *con
 
 ### What is in the app
 
-- **Issue panel** (Jira work item): registration form generated from the schema, verdict, prior runs with outcome, findings and report link, comparison table, the two decisions.
+- **Verdict on every work item**: a `Prior run check` entry in the work item's details shows the verdict as a lozenge (Duplicate, Similar, No prior run) with no panel to add or open.
+- **Issue panel** (Jira work item): the verdict and what the closest prior run found come first, then the prior runs with comparison tables and the two decisions, then the registration form generated from the schema.
+- **Conflicting results**: when experiments with the same conditions ended differently (one success, one failure), the panel and the registry say so and list the recorded differences. The agent can then offer explanations, labelled as hypotheses and tied to those differences.
 - **Automatic check**: saving conditions runs the check at once. A work item created with a conditions table in its description is registered and checked by an issue event trigger. A Duplicate is reported once in a comment that mentions the assignee.
 - **Experiment registry** (Jira project page): all experiments with outcome and source filters, repeats avoided, repeats run with a reason, duplicates awaiting a decision.
 - **Confluence import** (same page): reads the conditions table of every page in the linked space, offers the pages whose labels match the schema, and registers them after a person confirms. Extraction is done by code, not by a language model.
 - **Parameter schema settings** (Jira project settings page): add, edit, reorder and remove parameters, set tolerances, weights and verdict thresholds, load a built-in example.
 - **Prior Run Agent** (Rovo agent): answers "has this been run before?" and "what did past runs find above 120 °C on aluminum?" from the records, with links, and registers experiments or links repeats after confirmation.
-- **MCP server** (`rovo:mcp`): the same nine actions as tools for other agents and MCP clients.
+- **MCP server** (`rovo:mcp`): the same ten actions as tools for other agents and MCP clients.
 - **Reusable skill** (`rovo:skill`): the procedure "check for prior runs before planning an experiment", in `skills/prior-run-check/SKILL.md`.
 - **Teamwork Graph**: "Ask the people who ran it". For a prior run, DejaRun reads who wrote and contributed to its report page and what those people are working on now.
 - **Demo data loader** (Jira admin page): creates two fictional projects so the whole flow can be tried on an empty site.
@@ -74,13 +76,14 @@ Installation link: not published yet. It will be added here before submission.
 
 ### Walk through it
 
-1. In BAF, create a work item. Open it, choose the app button under the title and add **DejaRun**.
+1. In BAF, create a work item. Open it, choose the app button under the title and add **DejaRun**. A Jira administrator can then choose **Show for all work items** in the panel's menu, so every work item of that project has the panel. The verdict lozenge in the work item's details is there either way.
 2. Enter: system *Bio-epoxy BE-200*, method *Lap shear test*, resin *Epoxidized soybean oil*, hardener 30 wt%, filler 10 wt%, cure temperature **122** °C, cure time 60 min, substrate *Aluminum*. Save.
 3. The verdict is **Duplicate** of BAF-1, which failed eight months ago at 120 °C. The comparison shows the 2 °C difference is within ±5 °C. The work item gets a comment.
 4. Choose **Edit conditions**, change filler loading to 15 wt% and save. The verdict drops to **Similar**. Choose **Proceed with reason**, or go back and choose **Link as repeat**.
 5. Open **DejaRun** in the project navigation for the registry. On the **Import from Confluence** tab, scan the space and import the five report-only experiments.
 6. Open Rovo Chat, pick **Prior Run Agent** and ask: *Has anyone tested epoxidized soybean oil resin above 120 °C on aluminum?*
-7. Open CCP and repeat steps 1 to 3 with coating conditions. Same app, different schema, no code change.
+7. Ask the agent: *BAF-15 failed, but the same conditions worked before. Why?* It names the conflicting runs, lists the recorded differences, and gives hypotheses with what to measure.
+8. Open CCP and repeat steps 1 to 3 with coating conditions. Same app, different schema, no code change.
 
 ## Architecture
 
@@ -93,6 +96,7 @@ src/
     compare.js          field-by-field comparison table
     similarity.js       score, verdict, prior-run rule
     filter.js           condition filters for range questions
+    conflicts.js        same conditions, opposite results
   domain/               pure functions: schema and record validation
   backfill/parseTable.js  conditions tables from Confluence storage format and Jira ADF
   data/                 Forge hosted storage (KVS): schemas, records, checks, decisions
@@ -106,7 +110,7 @@ test/                   node --test
 docs/                   platform notes, demo script, judging notes
 ```
 
-- **Forge modules**: `jira:issuePanel`, `jira:projectPage`, `jira:projectSettingsPage`, `jira:adminPage`, `trigger`, `rovo:agent`, `action`, `rovo:mcp`, `rovo:skill`.
+- **Forge modules**: `jira:issuePanel`, `jira:issueContext`, `jira:projectPage`, `jira:projectSettingsPage`, `jira:adminPage`, `trigger`, `rovo:agent`, `action`, `rovo:mcp`, `rovo:skill`.
 - **Atlassian apps**: Jira (required), Confluence (optional), Rovo, Teamwork Graph API.
 - **UI**: UI Kit only.
 - **Storage**: Forge hosted storage only. No egress, no external service, no external language model. The app is eligible for Runs on Atlassian.
@@ -116,8 +120,8 @@ docs/                   platform notes, demo script, judging notes
 
 | Prize | Where |
 |---|---|
-| Rovo agents | `rovo:agent` "Prior Run Agent" with nine `action` modules and a `rovo:skill`, in `manifest.yml` and `src/actions/` |
-| Atlassian MCP | `rovo:mcp` module exposing the nine actions as tools |
+| Rovo agents | `rovo:agent` "Prior Run Agent" with ten `action` modules and a `rovo:skill`, in `manifest.yml` and `src/actions/` |
+| Atlassian MCP | `rovo:mcp` module exposing the ten actions as tools |
 | Teamwork Graph | `src/clients/twg.js`: `confluencePageCreator`, `confluencePageContributors`, `confluencePageLinkedConfluencePages`, `atlassianUserAssignedJiraWorkItems`, used by the issue panel and by the `get-run-owners` action. Results of real calls are in `docs/platform-notes.md` |
 
 ## Development

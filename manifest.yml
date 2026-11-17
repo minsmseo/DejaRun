@@ -6,7 +6,22 @@ modules:
         function: resolver
       render: native
       title: DejaRun
-      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+      icon: resource:icons;dejarun.svg
+  jira:issueContext:
+    - key: dejarun-issue-context
+      resource: context
+      resolver:
+        function: resolver
+      render: native
+      title: DejaRun
+      label: Prior run check
+      status:
+        type: lozenge
+        value:
+          label: Not registered
+          type: default
+      dynamicProperties:
+        function: context-status
   jira:projectPage:
     - key: dejarun-project-page
       resource: registry
@@ -14,6 +29,7 @@ modules:
         function: resolver
       render: native
       title: DejaRun
+      icon: resource:icons;dejarun.svg
   jira:projectSettingsPage:
     - key: dejarun-project-settings
       resource: settings
@@ -31,6 +47,7 @@ modules:
   rovo:agent:
     - key: prior-run-agent
       name: Prior Run Agent
+      icon: resource:icons;agent.svg
       description: Checks whether an experiment has been run before, compares conditions field by field with past experiments in Jira and Confluence, and explains what earlier runs found, including the failed ones.
       prompt: |
         You are the Prior Run Agent of the DejaRun app. You help researchers and lab managers in R&D labs avoid
@@ -62,9 +79,13 @@ modules:
            will be recorded (for register-experiment the work item or page and every condition value; for
            link-as-repeat both experiments), then ask for confirmation, and only run the action after the user
            clearly agrees. Never run a write action in the same turn in which you first propose it.
-        7. The decision to run a duplicate anyway belongs to the researcher. You cannot record it. Tell the user to
+        7. When experiments with the same conditions ended differently, you may offer possible explanations, but
+           only as hypotheses. Put them under the heading "Hypotheses, not findings", tie each one to a difference
+           or a findings sentence returned by explain-conflicting-results, and say what to measure or record to
+           settle it. If nothing on record could explain the difference, say so.
+        8. The decision to run a duplicate anyway belongs to the researcher. You cannot record it. Tell the user to
            use "Proceed with reason" in the DejaRun panel of the work item.
-        8. If an action returns an "error" field, tell the user what it says in plain words and what they can do
+        9. If an action returns an "error" field, tell the user what it says in plain words and what they can do
            next. Do not retry in a loop.
 
         Turning questions into action inputs
@@ -80,6 +101,8 @@ modules:
           confirmation register-experiment with that page.
         - "Who ran BAF-1?" or "Whom should I ask about it?" -> get-run-owners. Name only the people it returns.
         - "Who else is working on BE-200?" -> find-people-on-system.
+        - "Why did the same experiment fail this time?" or "Do any results contradict each other?" ->
+          explain-conflicting-results.
 
         How to answer
         - Lead with the answer: the verdict, or how many experiments match and how they ended.
@@ -93,7 +116,7 @@ modules:
         - Has this experiment been run before?
         - What did past runs on this system find?
         - Which conditions failed, and why?
-        - Compare two experiments
+        - Why did the same conditions give different results?
       actions:
         - find-prior-runs
         - get-experiment-record
@@ -104,6 +127,7 @@ modules:
         - link-as-repeat
         - get-run-owners
         - find-people-on-system
+        - explain-conflicting-results
       skills:
         - prior-run-check
   rovo:skill:
@@ -121,6 +145,7 @@ modules:
           - link-as-repeat
           - get-run-owners
           - find-people-on-system
+          - explain-conflicting-results
   rovo:mcp:
     - key: dejarun-mcp
       name: DejaRun
@@ -134,6 +159,7 @@ modules:
         - link-as-repeat
         - get-run-owners
         - find-people-on-system
+        - explain-conflicting-results
   action:
     - key: find-prior-runs
       name: Find prior runs
@@ -344,6 +370,22 @@ modules:
           type: string
           required: false
           description: Jira project key, for example BAF. Leave empty to use the project the conversation was opened in.
+    - key: explain-conflicting-results
+      name: Explain conflicting results
+      function: explainConflicts
+      actionVerb: GET
+      description: Finds experiments with the same conditions that ended differently (one success, one failure) and returns the recorded differences that could explain it. Use when asked why the same experiment gave different results.
+      inputs:
+        experiment:
+          title: Experiment
+          type: string
+          required: false
+          description: Work item key or record id. Limits the search to experiments with the same conditions as this one. Leave empty for every conflict in the project.
+        projectKey:
+          title: Project key
+          type: string
+          required: false
+          description: Jira project key, for example BAF. Leave empty to use the project the conversation was opened in.
   trigger:
     - key: dejarun-issue-events
       function: issue-events
@@ -358,6 +400,8 @@ modules:
       handler: index.handler
     - key: issue-events
       handler: index.onIssueEvent
+    - key: context-status
+      handler: index.contextStatus
     - key: findPriorRuns
       handler: index.findPriorRuns
     - key: getExperimentRecord
@@ -376,6 +420,8 @@ modules:
       handler: index.getRunOwners
     - key: findPeopleOnSystem
       handler: index.findPeopleOnSystem
+    - key: explainConflicts
+      handler: index.explainConflictingResults
 resources:
   - key: main
     path: src/frontend/index.jsx
@@ -385,6 +431,10 @@ resources:
     path: src/frontend/admin.jsx
   - key: registry
     path: src/frontend/registry.jsx
+  - key: context
+    path: src/frontend/context.jsx
+  - key: icons
+    path: static/icons
 permissions:
   scopes:
     # Read work items and check the current user's project permissions
