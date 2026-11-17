@@ -1,0 +1,21 @@
+modules:
+  jira:issuePanel:
+    - key: dejarun-hello-world-issue-panel
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: DejaRun
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/71ea0909-4792-48a6-bc49-d676932f20c3
