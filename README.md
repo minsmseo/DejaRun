@@ -82,7 +82,7 @@ Installation link: not published yet. It will be added here before submission.
 4. Choose **Edit conditions**, change filler loading to 15 wt% and save. The verdict drops to **Similar**. Choose **Proceed with reason**, or go back and choose **Link as repeat**.
 5. Open **DejaRun** in the project navigation for the registry. On the **Import from Confluence** tab, scan the space and import the five report-only experiments.
 6. Open Rovo Chat, pick **Prior Run Agent** and ask: *Has anyone tested epoxidized soybean oil resin above 120 °C on aluminum?*
-7. Ask the agent: *BAF-15 failed, but the same conditions worked before. Why?* It names the conflicting runs, lists the recorded differences, and gives hypotheses with what to measure.
+7. Ask the agent: *BAF-8 failed, but the same conditions worked before. Why?* It names the conflicting runs, lists the recorded differences, and gives hypotheses with what to measure.
 8. Open CCP and repeat steps 1 to 3 with coating conditions. Same app, different schema, no code change.
 
 ## Architecture

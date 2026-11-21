@@ -42,7 +42,7 @@ Scene 7 gives a Duplicate of the WA-5 run that failed at high humidity (80 %RH, 
 
 ## Optional extra shot: conflicting results
 
-The registry shows "Conflicting results" for BAF-7 (success) and the repeat that failed. Open the failed run's panel for the banner with the recorded differences, then ask the agent: "BAF-15 failed, but the same conditions worked before. Why did the same experiment give a different result?" It answers with the conflict, the recorded differences and a section "Hypotheses, not findings". Run on the development site. This can replace part of scene 6 (about 25 seconds).
+The registry shows "Conflicting results" for BAF-7 (success) and the repeat that failed. Open the failed run's panel for the banner with the recorded differences, then ask the agent: "BAF-8 failed, but the same conditions worked before. Why did the same experiment give a different result?" It answers with the conflict, the recorded differences and a section "Hypotheses, not findings". Run on the development site. This can replace part of scene 6 (about 25 seconds).
 
 ## Optional extra shot: automatic registration
 
